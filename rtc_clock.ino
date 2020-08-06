@@ -13,7 +13,8 @@ int status = WL_IDLE_STATUS;
 char ssid[] = SECRET_SSID;      // your network SSID (name)
 char pass[] = SECRET_PASS;      // your network password
 unsigned int localPort = 2390;  // local port to listen for UDP packets
-IPAddress timeServer(129, 6, 15, 28);   // time.nist.gov NTP server
+IPAddress timeServer(193, 182, 111, 141);
+//IPAddress timeServer(129, 6, 15, 28);   // 0.se.pool.ntp.org (193.182.111.141) NTP server
 const int NTP_PACKET_SIZE = 48;     // NTP time stamp is in the first 48 bytes of the message
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
 
@@ -26,15 +27,22 @@ InternalClock internalClock(InternalClock::Weekday::Saturday, 15, 20, 50);
 void setup() 
 {
     InitializeArduino();
-    
+    internalClock.SetWeekdayTimeZone(InternalClock::Weekday::Thursday, InternalClock::TimeZone::SummerTime);    // set internal clock time zone
 }
 
 void loop() 
 {
+    internalClock.SyncClockworkNTP(GetNTPTime());
+    Serial.println(internalClock.GetTimeInt());
+    delay(5000);
+}
+
+unsigned long GetNTPTime()
+{
     sendNTPpacket(timeServer); // send an NTP packet to a time server
-      // wait to see if a reply is available
+     // wait to see if a reply is available
     delay(1000);
-    if (Udp.parsePacket()) 
+    if (Udp.parsePacket())
     {
         Serial.println("packet received");
         // We've received a packet, read the data from it
@@ -60,26 +68,12 @@ void loop()
         // print Unix time:
         Serial.println(epoch);
 
-        unsigned int hour = epoch % 86400L / 3600;
-        unsigned int minute = epoch % 3600 / 60;
-        unsigned int second = epoch % 60;
-        Serial.print("hour: ");
-        Serial.println(hour);
-        Serial.print("minute: ");
-        Serial.println(minute);
-        Serial.print("second: ");
-        Serial.println(second);
-
-        // print the hour, minute and second:
-        Serial.print("The UTC time is ");       // UTC is the time at Greenwich Meridian (GMT)
-        Serial.print((epoch % 86400L) / 3600); // print the hour (86400 equals secs per day)
-        Serial.print(':');
-        Serial.print((epoch % 3600) / 60); // print the minute (3600 equals secs per minute)
-        Serial.print(':');
-        Serial.println(epoch % 60); // print the second
+        return epoch;
     }
-    // wait ten seconds before asking for the time again
-    delay(10000);
+    else
+    {
+        return 0;
+    }
 }
 
 void printWifiData() 
@@ -207,11 +201,13 @@ void InitializeArduino()
         // wait for serial port to connect
     }
 
+    /*
     String fv = WiFi.firmwareVersion();
     if (fv < WIFI_FIRMWARE_LATEST_VERSION) 
     {
         Serial.println("Please upgrade the firmware");
     }
+    */
 
     while (status != WL_CONNECTED)  // attempt to connect to Wifi network:
     {
